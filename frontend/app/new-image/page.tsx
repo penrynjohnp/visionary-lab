@@ -16,7 +16,8 @@ import { ImageCreationContainer } from "@/components/ImageCreationContainer";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
 import { FolderIcon } from "lucide-react";
-import { PageTransition } from "@/components/ui/page-transition";
+import dynamic from "next/dynamic";
+const PageTransition = dynamic(() => import("@/components/ui/page-transition").then(m => ({ default: m.PageTransition })), { ssr: false });
 import { ImageDetailView } from "@/components/ImageDetailView";
 import { RowBasedMasonryGrid } from "@/components/RowBasedMasonryGrid";
 
