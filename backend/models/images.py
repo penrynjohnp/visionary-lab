@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict, Any, Union, Literal
 from enum import Enum
 from backend.models.common import BaseResponse
-from pydantic import validator
+from pydantic import model_validator, validator
 
 # TODO: Implement full image models with all required parameters and fields
 
@@ -39,18 +39,18 @@ class ImagePromptBrandProtectionResponse(BaseModel):
 class ImageGenerationRequest(BaseModel):
     """Request model for image generation"""
 
-    # common parameters for gpt-image-1:
+    # common parameters for gpt-image-1.5:
     prompt: str = Field(...,
-                        description="User prompt for image generation. Maximum 32000 characters for gpt-image-1.",
+                        description="User prompt for image generation. Maximum 32000 characters for gpt-image-1.5.",
                         examples=["A futuristic city skyline at sunset"])
-    model: str = Field("gpt-image-1",
+    model: str = Field("gpt-image-1.5",
                        description="Image generation model to use",
-                       examples=["gpt-image-1", "gpt-image-1.5", "gpt-image-1-mini"])
+                       examples=["gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"])
     
     @validator('model')
     def validate_model(cls, v):
         """Validate that the model is one of the supported models"""
-        valid_models = ["gpt-image-1", "gpt-image-1.5", "gpt-image-1-mini"]
+        valid_models = ["gpt-image-1.5", "gpt-image-1-mini", "flux-kontext-pro"]
         if v not in valid_models:
             raise ValueError(f"Model must be one of {valid_models}")
         return v
@@ -60,9 +60,9 @@ class ImageGenerationRequest(BaseModel):
                       description="Output image dimensions. Must be one of 1024x1024, 1536x1024 (landscape), 1024x1536 (portrait), or auto.",
                       examples=["1024x1024", "1536x1024", "1024x1536", "auto"])
     response_format: str = Field("b64_json",
-                                 description="Response format for the generated image. Note: gpt-image-1 always returns b64_json regardless of this setting.",
+                                 description="Response format for the generated image. Note: gpt-image-1.5 always returns b64_json regardless of this setting.",
                                  examples=["b64_json"])
-    # gpt-image-1 specific parameters:
+    # gpt-image-1.5 specific parameters:
     quality: Optional[str] = Field("auto",
                                    description="Quality setting: 'low', 'medium', 'high', 'auto'. Defaults to auto.",
                                    examples=["low", "medium", "high", "auto"])
@@ -85,7 +85,7 @@ class ImageEditRequest(ImageGenerationRequest):
     """Request model for image editing"""
 
     image: Union[str, HttpUrl, List[Union[str, HttpUrl]]] = Field(...,
-                                                                  description="The image(s) to edit. For gpt-image-1, you can provide up to 10 images, each should be a png, webp, or jpg file less than 25MB. Can be local file path(s), Base64-encoded image(s) (data URI) or URL(s).",
+                                                                  description="The image(s) to edit. For gpt-image-1.5, you can provide up to 10 images, each should be a png, webp, or jpg file less than 25MB. Can be local file path(s), Base64-encoded image(s) (data URI) or URL(s).",
                                                                   examples=[
                                                                       "images/image.png",
                                                                       ["images/image1.png",
@@ -102,7 +102,7 @@ class ImageEditRequest(ImageGenerationRequest):
                                                     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
                                                 ])
 
-    # gpt-image-1 specific edit parameters:
+    # gpt-image-1.5 specific edit parameters:
     input_fidelity: Optional[str] = Field("low",
                                           description="Input fidelity setting for image editing: 'low' (default, faster), 'high' (better reproduction of input image features, additional cost). Only available for image editing operations.",
                                           examples=["low", "high"])
@@ -139,7 +139,7 @@ class ImageGenerationResponse(BaseResponse):
         None, description="JSON response from the image generation API"
     )
     token_usage: Optional[TokenUsage] = Field(
-        None, description="Token usage information (for gpt-image-1 only)"
+        None, description="Token usage information (for gpt-image-1.5 only)"
     )
 
 
@@ -203,7 +203,7 @@ class ImageGenerateWithAnalysisRequest(BaseModel):
     """Request model for generating, analyzing, and saving images in one call"""
     # Generation parameters (mirrors ImageGenerationRequest)
     prompt: str = Field(..., description="User prompt for image generation")
-    model: str = Field("gpt-image-1", description="Image generation model to use")
+    model: str = Field("gpt-image-1.5", description="Image generation model to use")
     n: int = Field(1, description="Number of images to generate (1-10)")
     size: str = Field(
         "auto",
@@ -211,7 +211,7 @@ class ImageGenerateWithAnalysisRequest(BaseModel):
     )
     response_format: str = Field(
         "b64_json",
-        description="Response format for generated image(s). gpt-image-1 returns b64_json",
+        description="Response format for generated image(s). gpt-image-1.5 returns b64_json",
     )
     quality: Optional[str] = Field(
         "auto", description="Quality setting: 'low', 'medium', 'high', 'auto'"
@@ -283,14 +283,11 @@ class ImageAnalyzeRequest(BaseModel):
         description="Base64-encoded image data to analyze directly. Must not include the 'data:image/...' prefix."
     )
 
-    @validator('image_path', 'base64_image')
-    def validate_at_least_one_source(cls, v, values):
-        # If we're validating base64_image and image_path was empty, base64_image must not be None
-        # Or if we're validating image_path and base64_image is not in values, image_path must not be None
-        if 'image_path' in values and values['image_path'] is None and v is None:
-            raise ValueError(
-                "Either image_path or base64_image must be provided")
-        return v
+    @model_validator(mode="after")
+    def validate_at_least_one_source(self):
+        if self.image_path is None and self.base64_image is None:
+            raise ValueError("Either image_path or base64_image must be provided")
+        return self
 
 
 class ImageAnalyzeCustomRequest(BaseModel):
@@ -308,14 +305,11 @@ class ImageAnalyzeCustomRequest(BaseModel):
         description="Custom instructions for analyzing the image. This will guide what aspects the AI should focus on."
     )
 
-    @validator('image_path', 'base64_image')
-    def validate_at_least_one_source(cls, v, values):
-        # If we're validating base64_image and image_path was empty, base64_image must not be None
-        # Or if we're validating image_path and base64_image is not in values, image_path must not be None
-        if 'image_path' in values and values['image_path'] is None and v is None:
-            raise ValueError(
-                "Either image_path or base64_image must be provided")
-        return v
+    @model_validator(mode="after")
+    def validate_at_least_one_source(self):
+        if self.image_path is None and self.base64_image is None:
+            raise ValueError("Either image_path or base64_image must be provided")
+        return self
 
 
 class ImageAnalyzeResponse(BaseModel):
@@ -387,7 +381,7 @@ class ImagePipelineRequest(BaseModel):
     )
     prompt: str = Field(..., description="Prompt used for generation or editing")
     model: str = Field(
-        "gpt-image-1", description="Model deployment identifier"
+        "gpt-image-1.5", description="Model deployment identifier"
     )
     n: int = Field(1, description="Number of variants to produce (1-10)")
     size: str = Field(
@@ -398,7 +392,7 @@ class ImagePipelineRequest(BaseModel):
         "b64_json", description="Expected response format from the model"
     )
     quality: Optional[str] = Field(
-        "auto", description="Quality hint for gpt-image-1"
+        "auto", description="Quality hint for gpt-image-1.5"
     )
     output_format: Optional[str] = Field(
         "png", description="Desired output format"

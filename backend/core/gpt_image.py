@@ -1,12 +1,10 @@
 import asyncio
 import os
 import logging
-import base64
-import uuid
 import io
 import tempfile
 import requests
-from typing import List, Union, Optional, Dict, Any
+from typing import List, Optional
 from openai import OpenAI, AzureOpenAI
 from PIL import Image
 from backend.core.config import settings
@@ -19,33 +17,41 @@ logger = logging.getLogger(__name__)
 
 class GPTImageClient:
     """
-    Client for GPT-Image-1 generation and editing using the official OpenAI or Azure OpenAI Python client.
+    Client for GPT-Image-1.5 generation and editing using the official OpenAI or Azure OpenAI Python client.
     """
 
-    def __init__(self, api_key: Optional[str] = None, organization_id: Optional[str] = None, provider: Optional[str] = None, deployment_name: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, organization_id: Optional[str] = None,
+                 provider: Optional[str] = None, deployment_name: Optional[str] = None,
+                 model: Optional[str] = None, credential=None, token_provider=None):
         """
         Initialize the GPT Image client with either OpenAI or Azure OpenAI client
 
         Args:
-            api_key: The API key to use (optional, will use from settings if not provided)
+            api_key: The API key to use (for OpenAI provider only)
             organization_id: The organization ID for OpenAI (optional)
             provider: The provider to use ('openai' or 'azure', defaults to settings.MODEL_PROVIDER)
             deployment_name: Specific deployment name to use (for Azure, optional)
-            model: Model name to use (gpt-image-1, gpt-image-1.5, gpt-image-1.5-mini)
+            model: Model name to use (gpt-image-1.5, gpt-image-1, gpt-image-1-mini)
+            credential: DefaultAzureCredential instance (for Azure provider)
+            token_provider: Bearer token provider from get_bearer_token_provider (for Azure provider)
         """
         provider = provider or settings.MODEL_PROVIDER
         self.model = model or settings.DEFAULT_IMAGE_MODEL
 
         if provider.lower() == "azure":
-            # Use Azure OpenAI
-            if not settings.IMAGEGEN_AOAI_RESOURCE or not settings.IMAGEGEN_AOAI_API_KEY:
-                raise ValueError(
-                    "IMAGEGEN_AOAI_RESOURCE and IMAGEGEN_AOAI_API_KEY must be set for Azure OpenAI")
-
-            self.api_key = settings.IMAGEGEN_AOAI_API_KEY
+            # Use Azure OpenAI with managed identity
+            if credential is None:
+                from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+                credential = DefaultAzureCredential()
+                token_provider = get_bearer_token_provider(
+                    credential, "https://cognitiveservices.azure.com/.default"
+                )
+            self.credential = credential
+            self.token_provider = token_provider
+            self.endpoint = settings.AI_FOUNDRY_ENDPOINT.rstrip('/') if settings.AI_FOUNDRY_ENDPOINT else ''
             self.client = AzureOpenAI(
-                azure_endpoint=f"https://{settings.IMAGEGEN_AOAI_RESOURCE}.openai.azure.com/",
-                api_key=self.api_key,
+                azure_ad_token_provider=token_provider,
+                azure_endpoint=self.endpoint,
                 api_version=settings.AOAI_API_VERSION
             )
             # Set deployment name: use provided or map from model
@@ -73,15 +79,16 @@ class GPTImageClient:
         Map model name to Azure deployment name
         
         Args:
-            model: Model identifier (gpt-image-1, gpt-image-1.5, gpt-image-1-mini)
+            model: Model identifier (gpt-image-1.5, gpt-image-1, gpt-image-1-mini)
             
         Returns:
             Deployment name from settings
         """
         mapping = {
-            "gpt-image-1": settings.IMAGEGEN_DEPLOYMENT,
-            "gpt-image-1.5": settings.IMAGEGEN_15_DEPLOYMENT,
+            "gpt-image-1.5": settings.IMAGEGEN_DEPLOYMENT,
+            "gpt-image-1": settings.IMAGEGEN_DEPLOYMENT,  # legacy alias
             "gpt-image-1-mini": settings.IMAGEGEN_1_MINI_DEPLOYMENT,
+            "flux-kontext-pro": settings.FLUX_KONTEXT_DEPLOYMENT,
         }
         deployment = mapping.get(model)
         
@@ -100,8 +107,8 @@ class GPTImageClient:
         Generate images using the model
 
         Args:
-            prompt: A text description of the desired image (max 32000 chars for gpt-image-1)
-            model: The model to use for image generation (defaults to IMAGEGEN_DEPLOYMENT for Azure or gpt-image-1 for OpenAI)
+            prompt: A text description of the desired image (max 32000 chars for gpt-image-1.5)
+            model: The model to use for image generation (defaults to IMAGEGEN_DEPLOYMENT for Azure or gpt-image-1.5 for OpenAI)
             n: The number of images to generate (1-10)
             size: The size of the generated images
             response_format: The format in which the generated images are returned
@@ -121,7 +128,6 @@ class GPTImageClient:
                 "prompt": prompt,
                 "n": n,
                 "size": size,
-                "quality": quality,
             }
 
             # Use the appropriate model parameter based on provider
@@ -131,21 +137,24 @@ class GPTImageClient:
                         "IMAGEGEN_DEPLOYMENT must be set for Azure OpenAI")
                 params["model"] = self.deployment_name
             else:
-                params["model"] = model or "gpt-image-1"
+                params["model"] = model or "gpt-image-1.5"
 
             # Add user parameter if provided
             if user:
                 params["user"] = user
 
-            # Add gpt-image-1 specific parameters that are supported by the client
-            if model == "gpt-image-1":
-                # Include background parameter regardless of provider
+            # FLUX models only support basic params (prompt, model, n, size, output_format)
+            is_flux = model and "flux" in model.lower()
+
+            if not is_flux:
+                # Add quality for gpt-image models
+                params["quality"] = quality
+
+            # Add gpt-image-1.5 specific parameters
+            if not is_flux and model in ("gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"):
                 if background != "auto":
                     params["background"] = background
-
-                # Add other parameters as they become supported by the client
                 try:
-                    # These will only work if the client supports them
                     if output_format != "png":
                         params["output_format"] = output_format
                     if output_format in ["webp", "jpeg"] and output_compression != 100:
@@ -168,7 +177,7 @@ class GPTImageClient:
                 "data": []
             }
 
-            # Extract token usage if available (for gpt-image-1 only)
+            # Extract token usage if available (for gpt-image-1.5 only)
             if hasattr(response, "usage"):
                 formatted_response["usage"] = {
                     "total_tokens": getattr(response.usage, "total_tokens", 0),
@@ -209,7 +218,7 @@ class GPTImageClient:
         Edit an image based on the provided prompt, mask (optional), and settings
 
         For Azure OpenAI, this will use the REST API since the Python SDK doesn't support edits
-        For direct OpenAI, this will use the model provided or default to gpt-image-1
+        For direct OpenAI, this will use the model provided or default to gpt-image-1.5
         """
         try:
             # Extract key parameters for easier access
@@ -227,12 +236,13 @@ class GPTImageClient:
                     raise ValueError(
                         "IMAGEGEN_DEPLOYMENT must be set for Azure OpenAI")
 
-                # Prepare the URL for the REST API - exactly as in the notebook
-                url = f"https://{settings.IMAGEGEN_AOAI_RESOURCE}.openai.azure.com/openai/deployments/{self.deployment_name}/images/edits?api-version={settings.AOAI_API_VERSION}"
+                # Prepare the URL for the REST API
+                url = f"{self.endpoint}/openai/deployments/{self.deployment_name}/images/edits?api-version={settings.AOAI_API_VERSION}"
 
-                # Prepare headers with API key - exactly as in the notebook
+                # Prepare headers with Bearer token from managed identity
+                token = self.credential.get_token("https://cognitiveservices.azure.com/.default")
                 headers = {
-                    "api-key": self.api_key
+                    "Authorization": f"Bearer {token.token}"
                 }
 
                 # Prepare files dictionary exactly as in the notebook
@@ -295,7 +305,7 @@ class GPTImageClient:
             else:
                 # Handle model parameter for OpenAI provider
                 if "model" not in kwargs:
-                    kwargs["model"] = "gpt-image-1"
+                    kwargs["model"] = "gpt-image-1.5"
 
                 # Get model for logging
                 model = kwargs.get("model")
@@ -328,7 +338,7 @@ class GPTImageClient:
 
         Args:
             prompt: Text prompt for image editing
-            model: Model to use (defaults to IMAGEGEN_DEPLOYMENT for Azure or gpt-image-1 for OpenAI)
+            model: Model to use (defaults to IMAGEGEN_DEPLOYMENT for Azure or gpt-image-1.5 for OpenAI)
             n: Number of images to generate
             size: Image size
             quality: Image quality
@@ -431,7 +441,7 @@ class GPTImageClient:
                         "IMAGEGEN_DEPLOYMENT must be set for Azure OpenAI")
                 params["model"] = self.deployment_name
             else:
-                params["model"] = model or "gpt-image-1"
+                params["model"] = model or "gpt-image-1.5"
 
             # Add quality parameter
             if quality != "auto":
@@ -440,11 +450,12 @@ class GPTImageClient:
             # For Azure provider, we need to use the REST API directly
             if self.provider == "azure":
                 # Prepare the URL for the REST API
-                url = f"https://{settings.IMAGEGEN_AOAI_RESOURCE}.openai.azure.com/openai/deployments/{self.deployment_name}/images/edits?api-version={settings.AOAI_API_VERSION}"
+                url = f"{self.endpoint}/openai/deployments/{self.deployment_name}/images/edits?api-version={settings.AOAI_API_VERSION}"
 
-                # Prepare headers with API key
+                # Prepare headers with Bearer token from managed identity
+                token = self.credential.get_token("https://cognitiveservices.azure.com/.default")
                 headers = {
-                    "api-key": self.api_key
+                    "Authorization": f"Bearer {token.token}"
                 }
 
                 # Prepare files exactly as the notebook does

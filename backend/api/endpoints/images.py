@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
-from typing import Dict, List, Optional
-from datetime import datetime
-import asyncio
+from typing import List, Optional
 import re
 import logging
 import base64
@@ -64,8 +62,7 @@ pipeline_service = ImagePipelineService()
 def get_cosmos_service() -> Optional[CosmosDBService]:
     """Dependency to get Cosmos DB service instance (optional)"""
     try:
-        # Check if we have either managed identity or key-based auth configured
-        if settings.AZURE_COSMOS_DB_ENDPOINT and (settings.USE_MANAGED_IDENTITY or settings.AZURE_COSMOS_DB_KEY):
+        if settings.AZURE_COSMOS_DB_ENDPOINT:
             return CosmosDBService()
         return None
     except Exception as e:
@@ -145,7 +142,7 @@ async def generate_filename_for_prompt(prompt: str, extension: str = None) -> st
 
         return generated_filename
 
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -164,7 +161,7 @@ async def edit_image(request: ImageEditRequest):
 @router.post("/edit/upload", response_model=ImageGenerationResponse)
 async def edit_image_upload(
     prompt: str = Form(...),
-    model: str = Form("gpt-image-1"),
+    model: str = Form("gpt-image-1.5"),
     n: int = Form(1),
     size: str = Form("auto"),
     quality: str = Form("auto"),
@@ -319,7 +316,7 @@ async def delete_image(request: ImageDeleteRequest):
 
         return ImageDeleteResponse(
             success=True,
-            message=f"Image deletion endpoint (skeleton)",
+            message="Image deletion endpoint (skeleton)",
             image_id=request.image_id,
         )
     except Exception as e:
