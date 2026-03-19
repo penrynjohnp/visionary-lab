@@ -70,7 +70,7 @@ class VideoGenerationJobResponse(BaseModel):
     """Response model for a video generation job (Sora 2)"""
     id: str = Field(..., description="Job ID")
     status: str = Field(..., description="Current status of the job")
-    prompt: str = Field(..., description="Original prompt used for generation")
+    prompt: str = Field("", description="Original prompt used for generation")
     n_seconds: int = Field(..., description="Length of the video in seconds")
     height: int = Field(..., description="Height of the video in pixels")
     width: int = Field(..., description="Width of the video in pixels")

@@ -29,7 +29,7 @@ def convert_sora2_response_to_job_format(sora2_response):
     result = {
         "id": sora2_response.get("id"),
         "status": mapped_status,
-        "prompt": sora2_response.get("prompt", ""),
+        "prompt": sora2_response.get("prompt") or "",
         "n_variants": 1,  # Sora 2 always generates 1 video
         "model": sora2_response.get("model", "sora-2"),
     }
