@@ -74,6 +74,9 @@ class VideoGenerationJobResponse(BaseModel):
     n_seconds: int = Field(..., description="Length of the video in seconds")
     height: int = Field(..., description="Height of the video in pixels")
     width: int = Field(..., description="Width of the video in pixels")
+    n_variants: int = Field(1, description="Number of variants (always 1 for Sora 2)")
+    model: Optional[str] = Field(None, description="Model used for generation")
+    progress: Optional[int] = Field(None, description="Generation progress percentage")
     generations: Optional[list] = Field(
         None, description="List of generated videos")
     created_at: Optional[int] = Field(
@@ -88,6 +91,8 @@ class VideoGenerationJobResponse(BaseModel):
         None, description="Cameo reference ID if used")
     is_remix: Optional[bool] = Field(
         None, description="Whether this is a remix job")
+    remixed_from_video_id: Optional[str] = Field(
+        None, description="Source video ID if this is a remix")
 
 
 class VideoAnalyzeRequest(BaseModel):

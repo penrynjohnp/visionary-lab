@@ -64,20 +64,20 @@ export interface VideoGenerationJob {
   n_seconds: number;
   height: number;
   width: number;
+  model?: string;
+  progress?: number;
   metadata?: Record<string, string>;
   generations?: Array<{
     id: string;
-    job_id: string;
-    created_at: number;
-    width: number;
-    height: number;
-    n_seconds: number;
-    prompt: string;
-    url: string;
+    prompt?: string;
+    status?: string;
   }>;
   created_at?: number;
   finished_at?: number;
   failure_reason?: string;
+  has_audio?: boolean;
+  is_remix?: boolean;
+  remixed_from_video_id?: string;
 }
 
 // Gallery types

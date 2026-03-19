@@ -284,14 +284,20 @@ export function VideoQueueProvider({ children }: { children: React.ReactNode }) 
           } else if (updatedJob.status === "failed") {
             updatedItems[i].status = "failed";
             hasUpdates = true;
-          } else if (updatedJob.status === "running" || updatedJob.status === "processing") {
+          } else if (updatedJob.status === "processing" || updatedJob.status === "queued") {
             if (item.status !== "processing") {
               updatedItems[i].status = "processing";
               hasUpdates = true;
             }
             
-            // Estimate progress based on time elapsed (assuming max 2 minutes processing time)
-            if (updatedJob.created_at) {
+            // Use real progress from Sora 2 API when available, otherwise estimate
+            if (updatedJob.progress != null) {
+              const realProgress = Math.min(95, updatedJob.progress);
+              if (Math.abs((item.progress || 0) - realProgress) > 2) {
+                updatedItems[i].progress = realProgress;
+                hasUpdates = true;
+              }
+            } else if (updatedJob.created_at) {
               const elapsedSeconds = (Date.now() / 1000) - updatedJob.created_at;
               const estimatedProgress = Math.min(95, (elapsedSeconds / 120) * 100);
               
