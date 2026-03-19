@@ -27,6 +27,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.blob.core.windows.net',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.azurefd.net',
+        pathname: '/**',
       }
     ],
     // Image optimization settings
