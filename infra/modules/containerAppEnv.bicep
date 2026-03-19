@@ -32,16 +32,12 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = if(dep
         sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
       }
     }
-    // VNet integration for private Cosmos DB access (only if subnet provided)
+    // VNet integration (only if subnet provided)
     vnetConfiguration: hasSubnetId ? {
       infrastructureSubnetId: subnetId
-      internal: false // External access enabled
-      // Platform reserved CIDR must be between /24 and /12 and MUST NOT overlap with your VNet ranges
-      // Use an RFC1918 range distinct from your VNet (e.g., 172.16.0.0/16)
-      platformReservedCidr: '172.16.0.0/16'
-      platformReservedDnsIP: '172.16.0.10'
+      internal: false
     } : null
-    zoneRedundant: false // Can be enabled for production
+    zoneRedundant: false
   }
 }
 
