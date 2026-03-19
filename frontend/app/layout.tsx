@@ -15,8 +15,6 @@ import { RefreshJobsButton } from "@/components/refresh-jobs-button";
 import { Toaster } from "@/components/ui/sonner";
 import dynamic from "next/dynamic";
 import { AnimatedLayout } from "@/components/animated-layout";
-import { SessionProvider } from "next-auth/react";
-import { auth } from "@/auth";
 import Script from "next/script";
 
 type RootLayoutProps = {
@@ -61,7 +59,6 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const session = await auth();
 
   return (
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -72,7 +69,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <meta name="format-detection" content="telephone=no" />
       </head>
       <body className="overflow-hidden">
-        <SessionProvider session={session}>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -123,7 +119,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
                 </JobsProvider>
               </VideoQueueProvider>
           </ThemeProvider>
-        </SessionProvider>
+
         
         {/* Service Worker Registration */}
         <Script
