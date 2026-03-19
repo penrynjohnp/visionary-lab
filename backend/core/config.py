@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # Azure Blob Storage Settings (managed identity — no keys)
     AZURE_BLOB_SERVICE_URL: Optional[str] = None
     AZURE_STORAGE_ACCOUNT_NAME: Optional[str] = None
+    CDN_BLOB_URL: Optional[str] = None
 
     # Container names
     AZURE_BLOB_IMAGE_CONTAINER: str = "images"

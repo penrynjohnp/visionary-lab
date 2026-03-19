@@ -10,7 +10,14 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2024-01-01' = if(depl
     name: 'Standard_LRS'
   }
   kind: 'StorageV2'
-  properties: {}
+  properties: {
+    publicNetworkAccess: 'Disabled'
+    allowBlobPublicAccess: false
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: 'None'
+    }
+  }
 }
 
 output storageAccountPrimaryEndpoint string = storageAccount.properties.primaryEndpoints.blob

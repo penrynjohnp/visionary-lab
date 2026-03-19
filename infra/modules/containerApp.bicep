@@ -27,6 +27,7 @@ param FLUX_KONTEXT_DEPLOYMENT string = ''
 param AZURE_BLOB_SERVICE_URL string
 param AZURE_STORAGE_ACCOUNT_NAME string
 param AZURE_BLOB_IMAGE_CONTAINER string = 'images'
+param CDN_BLOB_URL string = ''
 
 param targetPort int = 80
 param API_PROTOCOL string = 'http'
@@ -191,6 +192,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = if(deployNew) {
             {
               name: 'AZURE_CONTAINER_REGISTRY_ENDPOINT'
               value: AZURE_CONTAINER_REGISTRY_ENDPOINT
+            }
+            {
+              name: 'CDN_BLOB_URL'
+              value: CDN_BLOB_URL
             }
           ]
         }

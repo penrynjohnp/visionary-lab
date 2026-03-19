@@ -1177,8 +1177,8 @@ async def analyze_video(req: VideoAnalyzeRequest):
     try:
         file_path = req.video_path
 
-        # check if the path is a valid Azure blob storage path
-        pattern = r"^https://[a-z0-9]+\.blob\.core\.windows\.net/[a-z0-9]+/.+"
+        # check if the path is a valid Azure blob storage or CDN path
+        pattern = r"^https://[a-z0-9-]+\.(blob\.core\.windows\.net|azurefd\.net)/[a-z0-9-]+/.+"
         match = re.match(pattern, file_path)
 
         if not match:

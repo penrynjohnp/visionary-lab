@@ -76,6 +76,14 @@ param AUTH_ISSUER string = ''
 // Environment name for azd
 param environmentName string = ''
 
+// VNet parameters
+@description('Name of the Virtual Network')
+param vnetName string = 'vnet-${environmentName}'
+
+// Front Door parameters
+@description('Name of the Azure Front Door profile')
+param frontDoorName string = 'afd-${environmentName}'
+
 // Parameters for Cosmos DB
 param cosmosAccountName string = 'visionary-lab-cosmos'
 param cosmosDatabaseName string = 'VisionaryLabDB'
@@ -125,7 +133,70 @@ module cosmosDbMod './modules/cosmosDb.bicep' = {
     containerName: cosmosContainerName
     subnetId: ''
     deployNew: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
+  }
+}
+
+// ─── Virtual Network ───
+module vnetMod './modules/virtualNetwork.bicep' = {
+  name: 'vnetMod'
+  params: {
+    location: location
+    vnetName: vnetName
+  }
+}
+
+// ─── Private DNS Zones ───
+module blobDnsZoneMod './modules/privateDnsZone.bicep' = {
+  name: 'blobDnsZoneMod'
+  params: {
+    zoneName: 'privatelink.blob.core.windows.net'
+    vnetId: vnetMod.outputs.vnetId
+  }
+}
+
+module cosmosDnsZoneMod './modules/privateDnsZone.bicep' = {
+  name: 'cosmosDnsZoneMod'
+  params: {
+    zoneName: 'privatelink.documents.azure.com'
+    vnetId: vnetMod.outputs.vnetId
+  }
+}
+
+// ─── Private Endpoints ───
+module storagePrivateEndpointMod './modules/privateEndpoint.bicep' = {
+  name: 'storagePrivateEndpointMod'
+  params: {
+    location: location
+    privateEndpointName: 'pe-storage-${environmentName}'
+    subnetId: vnetMod.outputs.privateEndpointsSubnetId
+    privateLinkServiceId: storageAccountMod.outputs.storageAccountId
+    groupIds: ['blob']
+    privateDnsZoneId: blobDnsZoneMod.outputs.privateDnsZoneId
+  }
+}
+
+module cosmosPrivateEndpointMod './modules/privateEndpoint.bicep' = {
+  name: 'cosmosPrivateEndpointMod'
+  params: {
+    location: location
+    privateEndpointName: 'pe-cosmos-${environmentName}'
+    subnetId: vnetMod.outputs.privateEndpointsSubnetId
+    privateLinkServiceId: cosmosDbMod.outputs.cosmosAccountId
+    groupIds: ['Sql']
+    privateDnsZoneId: cosmosDnsZoneMod.outputs.privateDnsZoneId
+  }
+}
+
+// ─── Azure Front Door (CDN with private link to storage) ───
+var storageHostName = replace(replace(storageAccountMod.outputs.storageAccountPrimaryEndpoint, 'https://', ''), '/', '')
+module frontDoorMod './modules/frontDoor.bicep' = {
+  name: 'frontDoorMod'
+  params: {
+    frontDoorName: frontDoorName
+    storageAccountHostName: storageHostName
+    storageAccountId: storageAccountMod.outputs.storageAccountId
+    storageAccountLocation: location
   }
 }
 
@@ -230,7 +301,7 @@ module containerAppEnvMod './modules/containerAppEnv.bicep' = {
     location: location
     containerAppEnvName: containerAppEnvName
     logAnalyticsWorkspaceName: logAnalyticsWorkspaceName
-    subnetId: ''
+    subnetId: vnetMod.outputs.containerAppsSubnetId
     deployNew: true
   }
 }
@@ -247,6 +318,7 @@ module containerAppBackend './modules/containerApp.bicep' = {
     AZURE_BLOB_SERVICE_URL: storageAccountMod.outputs.storageAccountPrimaryEndpoint
     AZURE_STORAGE_ACCOUNT_NAME: storageAccountName
     AZURE_BLOB_IMAGE_CONTAINER: 'images'
+    CDN_BLOB_URL: 'https://${frontDoorMod.outputs.frontDoorEndpointHostName}'
     DOCKER_IMAGE: DOCKER_IMAGE_BACKEND
     AZURE_CONTAINER_REGISTRY_ENDPOINT: containerRegistryMod.outputs.containerRegistryLoginServer
     AZURE_CONTAINER_REGISTRY_USERNAME: containerRegistryMod.outputs.containerRegistryUsername
@@ -277,6 +349,7 @@ module containerAppFrontend './modules/containerApp.bicep' = {
     AZURE_BLOB_SERVICE_URL: storageAccountMod.outputs.storageAccountPrimaryEndpoint
     AZURE_STORAGE_ACCOUNT_NAME: storageAccountName
     AZURE_BLOB_IMAGE_CONTAINER: 'images'
+    CDN_BLOB_URL: 'https://${frontDoorMod.outputs.frontDoorEndpointHostName}'
     DOCKER_IMAGE: DOCKER_IMAGE_FRONTEND
     AZURE_CONTAINER_REGISTRY_ENDPOINT: containerRegistryMod.outputs.containerRegistryLoginServer
     AZURE_CONTAINER_REGISTRY_USERNAME: containerRegistryMod.outputs.containerRegistryUsername
@@ -341,3 +414,4 @@ output AI_FOUNDRY_NAME string = aiFoundryName
 output COSMOS_DB_ENDPOINT string = cosmosDbMod.outputs.cosmosAccountEndpoint
 output COSMOS_DB_DATABASE_NAME string = cosmosDbMod.outputs.databaseName
 output COSMOS_DB_CONTAINER_NAME string = cosmosDbMod.outputs.containerName
+output CDN_BLOB_URL string = 'https://${frontDoorMod.outputs.frontDoorEndpointHostName}'

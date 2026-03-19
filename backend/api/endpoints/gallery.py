@@ -652,13 +652,14 @@ async def get_sas_tokens():
             expiry=expiry_time,
             start=start_time,
         )
+        base_url = settings.CDN_BLOB_URL or f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
         return {
             "success": True,
             "message": "SAS tokens generated successfully",
             "video_sas_token": video_token,
             "image_sas_token": image_token,
-            "video_container_url": f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_BLOB_VIDEO_CONTAINER}",
-            "image_container_url": f"https://{settings.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{settings.AZURE_BLOB_IMAGE_CONTAINER}",
+            "video_container_url": f"{base_url}/{settings.AZURE_BLOB_VIDEO_CONTAINER}",
+            "image_container_url": f"{base_url}/{settings.AZURE_BLOB_IMAGE_CONTAINER}",
             "expiry": expiry_time,
         }
     except Exception as e:
