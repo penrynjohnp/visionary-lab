@@ -665,13 +665,9 @@ export function mapSettingsToApiRequest(settings: {
   } else if (ar === "9:16") {
     if (res === "1080p") { width = 1024; height = 1792; }
     else { width = 720; height = 1280; }
-  } else if (ar === "1:1") {
-    width = 1280; height = 720;
-    console.warn(`1:1 aspect ratio not supported by Sora 2, using 16:9 (1280x720)`);
   } else {
     width = 1280;
     height = 720;
-    console.warn(`Unexpected aspectRatio: ${ar}, defaulting to 1280x720 (Sora 2 standard)`);
   }
 
   return {

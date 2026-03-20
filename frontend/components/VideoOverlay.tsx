@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, ArrowUp, Settings, Eye, Loader2, Wand2, RectangleHorizontal, Square, RectangleVertical, SignalLow, SignalMedium, SignalHigh, Timer, FolderTree, Plus, RefreshCw, PlusCircle } from "lucide-react";
+import { X, ArrowUp, Settings, Eye, Loader2, Wand2, RectangleHorizontal, RectangleVertical, SignalMedium, SignalHigh, Timer, FolderTree, Plus, RefreshCw, PlusCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -344,14 +344,13 @@ export function VideoOverlay({
         validFiles.push(file);
       }
       
-      // Limit to 3 images for video (vs 5 for images)
-      if (sourceImages.length + validFiles.length > 3) {
-        toast.warning("Too many images", {
-          description: "Maximum 3 images can be used for video generation"
+      // Sora 2 supports only 1 reference image
+      if (sourceImages.length + validFiles.length > 1) {
+        toast.warning("Single image only", {
+          description: "Sora 2 supports one reference image per video"
         });
         
-        const spaceLeft = 3 - sourceImages.length;
-        validFiles.splice(spaceLeft);
+        validFiles.splice(1 - sourceImages.length);
       }
       
       if (validFiles.length > 0) {
@@ -581,7 +580,6 @@ export function VideoOverlay({
                 className="hidden"
                 disabled={isGenerating}
                 aria-label="Upload image files"
-                multiple
               />
               
               <Textarea
@@ -690,12 +688,6 @@ export function VideoOverlay({
                                     16:9
                                   </div>
                                 </SelectItem>
-                                <SelectItem value="1:1">
-                                  <div className="flex items-center">
-                                    <Square className="h-4 w-4 mr-2" />
-                                    1:1
-                                  </div>
-                                </SelectItem>
                                 <SelectItem value="9:16">
                                   <div className="flex items-center">
                                     <RectangleVertical className="h-4 w-4 mr-2" />
@@ -718,25 +710,19 @@ export function VideoOverlay({
                               disabled={isGenerating}
                             >
                               <SelectTrigger className="w-[140px] h-8">
-                                <SelectValue placeholder="480p" />
+                                <SelectValue placeholder="HD" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="480p">
-                                  <div className="flex items-center">
-                                    <SignalLow className="h-4 w-4 mr-2" />
-                                    480p
-                                  </div>
-                                </SelectItem>
                                 <SelectItem value="720p">
                                   <div className="flex items-center">
                                     <SignalMedium className="h-4 w-4 mr-2" />
-                                    720p
+                                    HD
                                   </div>
                                 </SelectItem>
                                 <SelectItem value="1080p">
                                   <div className="flex items-center">
                                     <SignalHigh className="h-4 w-4 mr-2" />
-                                    1080p
+                                    Full HD
                                   </div>
                                 </SelectItem>
                               </SelectContent>
