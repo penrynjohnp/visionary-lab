@@ -4,6 +4,8 @@ param containerAppEnvId string
 param DOCKER_IMAGE string
 param deployNew bool = true
 param azdServiceName string = ''
+param customDomainName string = ''
+param certificateId string = ''
 
 // Easy Auth configuration (set enableAuth=true for frontend)
 param enableAuth bool = false
@@ -68,6 +70,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = if(deployNew) {
             latestRevision: true
           }
         ]
+        customDomains: customDomainName != '' ? [
+          {
+            name: customDomainName
+            certificateId: certificateId
+            bindingType: certificateId != '' ? 'SniEnabled' : 'Disabled'
+          }
+        ] : []
       }
       registries: AZURE_CONTAINER_REGISTRY_ENDPOINT != '' ? [
         {

@@ -49,6 +49,12 @@
     },
     "frontDoorName": {
       "value": "${AZURE_FRONT_DOOR_NAME}"
+    },
+    "frontendCustomDomain": {
+      "value": "${FRONTEND_CUSTOM_DOMAIN}"
+    },
+    "frontendCertificateId": {
+      "value": "${FRONTEND_CERTIFICATE_ID}"
     }
   }
 }

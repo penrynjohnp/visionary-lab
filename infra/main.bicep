@@ -84,6 +84,12 @@ param vnetName string = 'vnet-${environmentName}'
 @description('Name of the Azure Front Door profile')
 param frontDoorName string = 'afd-${environmentName}'
 
+// Custom domain for frontend
+@description('Custom domain name for the frontend (e.g., visionary.go-agentic.com). Leave empty to skip.')
+param frontendCustomDomain string = ''
+@description('Managed certificate resource ID for the custom domain. Leave empty for first-time setup.')
+param frontendCertificateId string = ''
+
 // Parameters for Cosmos DB
 param cosmosAccountName string = 'visionary-lab-cosmos'
 param cosmosDatabaseName string = 'VisionaryLabDB'
@@ -368,6 +374,8 @@ module containerAppFrontend './modules/containerApp.bicep' = {
     authClientId: AUTH_CLIENT_ID
     authClientSecret: AUTH_CLIENT_SECRET
     authIssuer: AUTH_ISSUER
+    customDomainName: frontendCustomDomain
+    certificateId: frontendCertificateId
     azdServiceName: 'frontend'
   }
 }
